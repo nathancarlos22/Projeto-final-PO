@@ -9,6 +9,8 @@ Original file is located at
 
 import numpy as np
 
+!pip install ortools
+
 """# Lendo arquivo"""
 
 path = 'Problema.txt'
@@ -44,6 +46,19 @@ c = np.double( c )
 
 print(a, b, c)
 
+Igualdade = input("Digite 1 se as restrições forem menores ou iguais ou 2 se forem maiores ou iguais")
+Obj = input("Digite 1 se a funcao objetivo é de maximização ou 2 se for de minimização")
+
+if Obj == 1:
+  obj = 'Max'
+else:
+  obj= 'Min'  
+
+if Igualdade == 1:
+  igualdade = 'LessOrEqual'
+else:
+  igualdade = 'MoreOrEqual'
+
 """# Adicionando no modelo"""
 
 def create_data_model(A, B, C, num_vars, num_rest):
@@ -56,6 +71,61 @@ def create_data_model(A, B, C, num_vars, num_rest):
   return data
 
 data = create_data_model(a, b, c, var, rest)
+
+solver = pywraplp.Solver('simple_mip_program', pywraplp.Solver.CBC_MIXED_INTEGER_PROGRAMMING)
+
+infinity = solver.infinity()
+x = {}
+
+for j in range(data['num_vars']):
+    x[j] = solver.NumVar(0, 1, 'x[%i]' % j) #Variáveis que pertencem ao conjunto entre 0 e 1
+
+print("\n==== Solução inicial ====\n ")
+print('\n\nNumero de variaveis =', solver.NumVariables())
+
+if igualdade == 'MoreOrEqual':
+  for i in range(data['num_constraints'] ): # -1 para nao add a ultima rest
+    constraint = solver.RowConstraint(data['bounds'][i], infinity, '')#limite inferior, superior e nome da restrição
+    for j in range(data['num_vars']):
+      constraint.SetCoefficient(x[j], data['constraint_coeffs'][i][j]) 
+
+
+if igualdade == 'LessOrEqual':
+  for i in range(data['num_constraints'] ):
+    constraint = solver.RowConstraint(0, data['bounds'][i], '')
+    for j in range(data['num_vars']):
+      constraint.SetCoefficient(x[j], data['constraint_coeffs'][i][j]) 
+
+print('Numero de restriçoes =', solver.NumConstraints())
+
+objective = solver.Objective()
+
+for j in range(data['num_vars']):
+    objective.SetCoefficient(x[j], data['obj_coeffs'][j])
+
+if obj == 'Max':
+  objective.SetMaximization() #Problema de maximização
+  status = solver.Solve()
+
+if obj == 'Min':
+  objective.SetMinimization() #Problema de minimização
+  status = solver.Solve()
+
+solution_value = []
+if status == pywraplp.Solver.OPTIMAL:
+    print('\nValor ótimo = ', solver.Objective().Value())
+    for j in range(data['num_vars']):
+        print(x[j].name(), ' = ', x[j].solution_value())
+        solution_value.append(x[j].solution_value()) 
+    print()
+    print('Problema resolvido em %f milliseconds' % solver.wall_time())
+    print('Problema resolvido em %d nós' % solver.nodes())
+else:
+    print('Nao tem solucao otima.')
+
+solution = (solution_value, solver.Objective().Value())
+
+"""# Função para resolver cada restrição"""
 
 from ortools.linear_solver import pywraplp
 
@@ -96,8 +166,13 @@ def main (Data, igualdade): #Main para fazer o branch
   for j in range(Data['num_vars']):
       objective.SetCoefficient(x[j], Data['obj_coeffs'][j])
   
-  objective.SetMinimization() #Problema de minimização
-  status = solver.Solve()
+  if obj == 'Max':
+    objective.SetMaximization() #Problema de maximização
+    status = solver.Solve()
+
+  if obj == 'Min':
+    objective.SetMinimization() #Problema de minimização
+    status = solver.Solve()
 
   solution_value = []
   if status == pywraplp.Solver.OPTIMAL:
@@ -112,10 +187,6 @@ def main (Data, igualdade): #Main para fazer o branch
       print('Nao tem solucao otima.')
       
   return (solution_value, solver.Objective().Value())
-
-print("=== Solução inicial ====")
-
-solution = main(data, "MoreOrEqual")
 
 """# Adicionar uma restrição no modelo"""
 
@@ -217,6 +288,8 @@ def Verifica_integralidade(Solution):
       - Se não tiver vazia, verifica se a solução é inteira (integralidade) e se a solução que já está lá é melhor que será inserida (limitante)
 """
 
+!pip install pythonds
+
 from pythonds.basic.stack import Stack
 menosInfinity = -9999 
 maisInfinity = 9999
@@ -285,7 +358,7 @@ print(pilha.see())
 pilha.push([[1, 1, 1], 1]) #se for menor adiciona no primal
 print(pilha.see())
 
-pilha = Pilha()
+pilha = Pilha() #reinicializando a pilha
 print(pilha.see())
 
 """# Adicionando lado direito e esquerdo da árvore"""
